@@ -6,4 +6,5 @@ dependencies {
     implementation("io.grpc:grpc-stub:$grpcVersion")
     implementation("io.grpc:grpc-protobuf:$grpcVersion")
     implementation("org.springframework:spring-context")
+    implementation("tools.jackson.core:jackson-databind")
 }
