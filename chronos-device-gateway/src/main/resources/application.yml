@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: chronos-device-gateway
+  main:
+    web-application-type: none
+
+chronos:
+  gateway:
+    tcp:
+      host: ${CHRONOS_GATEWAY_TCP_HOST:0.0.0.0}
+      port: ${CHRONOS_GATEWAY_TCP_PORT:9100}
+      max-frame-bytes: ${CHRONOS_GATEWAY_MAX_FRAME_BYTES:1048576}
+      read-idle-seconds: ${CHRONOS_GATEWAY_READ_IDLE_SECONDS:90}
+    core:
+      host: ${CHRONOS_GATEWAY_CORE_HOST:localhost}
+      grpc-port: ${CHRONOS_GATEWAY_CORE_GRPC_PORT:9090}
+      plaintext: ${CHRONOS_GATEWAY_CORE_PLAINTEXT:true}
+    batch:
+      max-events: ${CHRONOS_GATEWAY_BATCH_MAX_EVENTS:100}
+      flush-millis: ${CHRONOS_GATEWAY_BATCH_FLUSH_MILLIS:100}
+      queue-capacity: ${CHRONOS_GATEWAY_QUEUE_CAPACITY:10000}
+      rpc-deadline-millis: ${CHRONOS_GATEWAY_RPC_DEADLINE_MILLIS:5000}

@@ -1,0 +1,31 @@
+syntax = "proto3";
+package chronos.v1;
+
+import "chronos/v1/event.proto";
+
+option java_multiple_files = true;
+option java_package = "com.chronos.contract.v1";
+
+service ChronosIngestService {
+  rpc PublishEvent(PublishEventRequest) returns (PublishEventResponse);
+  rpc PublishEvents(PublishEventsRequest) returns (PublishEventsResponse);
+}
+
+message PublishEventRequest { ChronosEvent event = 1; }
+message PublishEventsRequest { repeated ChronosEvent events = 1; }
+
+enum PublishStatus {
+  PUBLISH_STATUS_UNSPECIFIED = 0;
+  ACCEPTED = 1;
+  DUPLICATE = 2;
+  INVALID = 3;
+  REJECTED = 4;
+}
+
+message PublishEventResponse {
+  PublishStatus status = 1;
+  int64 event_seq = 2;
+  string message = 3;
+}
+
+message PublishEventsResponse { repeated PublishEventResponse results = 1; }
