@@ -7,7 +7,9 @@ public enum DeviceMessageType {
     LIGHT_ON(4, "LIGHT.TURNED_ON"),
     LIGHT_OFF(5, "LIGHT.TURNED_OFF"),
     HEARTBEAT(6, "DEVICE.HEARTBEAT"),
+    AUTHENTICATE(7, null),
     GENERIC_JSON_EVENT(100, null),
+    RETRANSMIT_REQUEST(126, null),
     ACK(127, null);
 
     private final int code;

@@ -1,6 +1,7 @@
 package com.chronos.boot.config;
 
 import com.chronos.grpc.ingest.ChronosIngestGrpcService;
+import com.chronos.grpc.device.DeviceRegistryGrpcService;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,10 +12,11 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public class GrpcServerLifecycle implements SmartLifecycle {
-    private final ChronosIngestGrpcService ingest; private final int port; private Server server; private volatile boolean running;
-    public GrpcServerLifecycle(ChronosIngestGrpcService ingest,@Value("${chronos.grpc.port:9090}") int port){this.ingest=ingest;this.port=port;}
+    private final ChronosIngestGrpcService ingest; private final DeviceRegistryGrpcService devices; private final int port; private Server server; private volatile boolean running;
+    public GrpcServerLifecycle(ChronosIngestGrpcService ingest, DeviceRegistryGrpcService devices,
+        @Value("${chronos.grpc.port:9090}") int port){this.ingest=ingest;this.devices=devices;this.port=port;}
     @Override public void start(){
-        try{server=NettyServerBuilder.forPort(port).addService(ingest).build().start();running=true;}
+        try{server=NettyServerBuilder.forPort(port).addService(ingest).addService(devices).build().start();running=true;}
         catch(IOException e){throw new IllegalStateException("Failed to start gRPC on "+port,e);}
     }
     @Override public void stop(){

@@ -1,0 +1,38 @@
+syntax = "proto3";
+package chronos.v1;
+
+option java_multiple_files = true;
+option java_package = "com.chronos.contract.v1";
+
+service DeviceRegistryService {
+  rpc Authenticate(AuthenticateDeviceRequest) returns (AuthenticateDeviceResponse);
+  rpc Heartbeat(DeviceHeartbeatRequest) returns (DeviceHeartbeatResponse);
+  rpc Disconnect(DeviceDisconnectRequest) returns (DeviceDisconnectResponse);
+}
+
+message AuthenticateDeviceRequest {
+  string device_id = 1;
+  string secret = 2;
+  string gateway_id = 3;
+  string connection_id = 4;
+}
+message AuthenticateDeviceResponse {
+  bool authenticated = 1;
+  string message = 2;
+  string space_id = 3;
+  int64 expected_sequence = 4;
+}
+message DeviceHeartbeatRequest {
+  string device_id = 1;
+  string gateway_id = 2;
+  string connection_id = 3;
+  int64 last_sequence = 4;
+}
+message DeviceHeartbeatResponse { bool accepted = 1; }
+message DeviceDisconnectRequest {
+  string device_id = 1;
+  string gateway_id = 2;
+  string connection_id = 3;
+  string reason = 4;
+}
+message DeviceDisconnectResponse { bool accepted = 1; }

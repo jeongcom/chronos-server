@@ -8,6 +8,7 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("tools.jackson.core:jackson-databind")
 
     implementation("io.netty:netty-buffer:$nettyVersion")
     implementation("io.netty:netty-codec:$nettyVersion")

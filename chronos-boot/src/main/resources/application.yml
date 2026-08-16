@@ -35,6 +35,10 @@ chronos:
     port: ${CHRONOS_GRPC_PORT:9090}
   outbox:
     poll-ms: 250
+  device:
+    lease-seconds: ${CHRONOS_DEVICE_LEASE_SECONDS:45}
+    offline-seconds: ${CHRONOS_DEVICE_OFFLINE_SECONDS:60}
+    offline-scan-ms: ${CHRONOS_DEVICE_OFFLINE_SCAN_MS:15000}
 
 management:
   endpoints:

@@ -6,26 +6,22 @@ services:
       POSTGRES_USER: chronos
       POSTGRES_PASSWORD: chronos
     ports: ["5432:5432"]
-    volumes:
-      - chronos-postgres:/var/lib/postgresql
+    volumes: [chronos-postgres:/var/lib/postgresql]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chronos -d chronos"]
       interval: 5s
       timeout: 3s
       retries: 20
-
   redis:
     image: redis:8
     command: ["redis-server", "--appendonly", "yes"]
     ports: ["6379:6379"]
-    volumes:
-      - chronos-redis:/data
+    volumes: [chronos-redis:/data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 20
-
   kafka:
     image: apache/kafka:4.2.0
     hostname: kafka
@@ -49,12 +45,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
-
   chronos-server:
     profiles: ["apps"]
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: {context: ., dockerfile: Dockerfile}
     environment:
       CHRONOS_DB_URL: jdbc:postgresql://postgres:5432/chronos
       CHRONOS_DB_USER: chronos
@@ -63,31 +56,34 @@ services:
       CHRONOS_KAFKA_BOOTSTRAP: kafka:9092
       CHRONOS_HTTP_PORT: 8080
       CHRONOS_GRPC_PORT: 9090
-    ports:
-      - "8080:8080"
-      - "9090:9090"
+      CHRONOS_DEVICE_LEASE_SECONDS: 15
+      CHRONOS_DEVICE_OFFLINE_SECONDS: 25
+    ports: ["8080:8080", "9090:9090"]
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      kafka: {condition: service_healthy}
   chronos-device-gateway:
     profiles: ["apps"]
-    build:
-      context: .
-      dockerfile: Dockerfile.gateway
+    build: {context: ., dockerfile: Dockerfile.gateway}
     environment:
       CHRONOS_GATEWAY_CORE_HOST: chronos-server
       CHRONOS_GATEWAY_CORE_GRPC_PORT: 9090
-    ports:
-      - "9100:9100"
+      CHRONOS_GATEWAY_ID: gateway-a
+    ports: ["9100:9100"]
     depends_on:
-      chronos-server:
-        condition: service_started
-
+      chronos-server: {condition: service_started}
+  chronos-device-gateway-2:
+    profiles: ["apps"]
+    build: {context: ., dockerfile: Dockerfile.gateway}
+    environment:
+      CHRONOS_GATEWAY_CORE_HOST: chronos-server
+      CHRONOS_GATEWAY_CORE_GRPC_PORT: 9090
+      CHRONOS_GATEWAY_ID: gateway-b
+      CHRONOS_GATEWAY_TCP_PORT: 9100
+    ports: ["9101:9100"]
+    depends_on:
+      chronos-server: {condition: service_started}
 volumes:
   chronos-postgres:
   chronos-redis:
