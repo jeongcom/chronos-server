@@ -1,0 +1,167 @@
+name: CHRONOS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chronos-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Setup Gradle 9.7
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.7.0'
+          cache-provider: basic
+
+      - name: Verify toolchain
+        run: |
+          java -version
+          gradle --version
+
+      - name: Build and run tests
+        run: gradle clean build --no-daemon --stacktrace
+
+  docker-integration:
+    name: Docker Integration
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build and start CHRONOS stack
+        run: docker compose --profile apps up -d --build
+
+      - name: Wait for CHRONOS Server health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            if curl --fail --silent http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "CHRONOS Server is UP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "CHRONOS Server did not become healthy"
+          docker compose --profile apps ps
+          exit 1
+
+      - name: Wait for Device Gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import socket, time, sys
+          for _ in range(60):
+              try:
+                  with socket.create_connection(("127.0.0.1", 9100), timeout=1):
+                      print("Device Gateway is accepting TCP connections")
+                      sys.exit(0)
+              except OSError:
+                  time.sleep(1)
+          raise SystemExit("Device Gateway did not start")
+          PY
+
+      - name: Send fragmented device packets
+        run: |
+          python3 tools/device-simulator.py \
+            --device TEMP-CI-001 \
+            --space LAB-CI \
+            --type temperature \
+            --temperature 24.3 \
+            --sequence 1001 \
+            --count 3 \
+            --split
+
+      - name: Verify Redis current-world projection through REST
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, time, urllib.request
+
+          url = "http://localhost:8080/api/v1/world/LAB-CI/current"
+          last = None
+          for _ in range(60):
+              try:
+                  with urllib.request.urlopen(url, timeout=2) as r:
+                      last = json.load(r)
+                  if last.get("spaceId") == "LAB-CI" and last.get("lastEventSeq", 0) > 0:
+                      print(json.dumps(last, indent=2))
+                      break
+              except Exception:
+                  pass
+              time.sleep(1)
+          else:
+              raise SystemExit(f"Current world was not projected: {last}")
+          PY
+
+      - name: Verify historical Replay API
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime, json, urllib.parse, urllib.request
+
+          at = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=5)).isoformat().replace('+00:00', 'Z')
+          url = "http://localhost:8080/api/v1/world/LAB-CI/state?" + urllib.parse.urlencode({"at": at})
+          with urllib.request.urlopen(url, timeout=5) as r:
+              data = json.load(r)
+          print(json.dumps(data, indent=2))
+          if data.get("spaceId") != "LAB-CI":
+              raise SystemExit("Replay API returned the wrong spaceId")
+          if data.get("lastEventSeq", 0) <= 0:
+              raise SystemExit("Replay API did not replay stored events")
+          PY
+
+      - name: Verify duplicate sequence is idempotent
+        shell: bash
+        run: |
+          set -euo pipefail
+          output=$(python3 tools/device-simulator.py \
+            --device TEMP-CI-001 \
+            --space LAB-CI \
+            --type temperature \
+            --temperature 99.9 \
+            --sequence 1001 \
+            --count 1)
+          echo "$output"
+          echo "$output" | grep -Eq 'status=1|DUPLICATE'
+
+      - name: Container status
+        if: always()
+        run: docker compose --profile apps ps
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose --profile apps logs --no-color --tail=500
+
+      - name: Shutdown stack
+        if: always()
+        run: docker compose --profile apps down -v --remove-orphans
